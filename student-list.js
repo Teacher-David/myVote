@@ -1,13 +1,13 @@
 // student-list.js
 import { db } from './firebase-config.js';
-import { collection, query, where, onSnapshot, orderBy } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
+import { collection, query, where, onSnapshot } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     const pollListDiv = document.getElementById('poll-list');
     const loadingMessage = document.getElementById('loading-message');
 
-    // 'active' 상태의 투표만 가져와 최신순으로 정렬
-    const q = query(collection(db, "polls"), where("status", "==", "active"), orderBy("createdAt", "desc"));
+    // 'active' 상태의 투표만 가져오기 (orderBy 제거하여 인덱스 문제 해결)
+    const q = query(collection(db, "polls"), where("status", "==", "active"));
 
     onSnapshot(q, (snapshot) => {
         pollListDiv.innerHTML = ''; // 기존 목록 초기화
@@ -18,15 +18,29 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         loadingMessage.style.display = 'none'; // 로딩 메시지 숨김
+        
+        // 클라이언트에서 정렬
+        const polls = [];
         snapshot.forEach((doc) => {
-            const poll = doc.data();
-            const pollId = doc.id;
+            polls.push({ id: doc.id, ...doc.data() });
+        });
+        
+        // 생성일 기준 내림차순 정렬
+        polls.sort((a, b) => {
+            const aDate = a.createdAt ? a.createdAt.toDate() : new Date(0);
+            const bDate = b.createdAt ? b.createdAt.toDate() : new Date(0);
+            return bDate - aDate;
+        });
 
+        // 정렬된 투표 목록 표시
+        polls.forEach((poll) => {
+            const pollId = poll.id;
             const card = document.createElement('div');
             card.className = 'poll-card';
             card.innerHTML = `
                 <h2>${poll.title}</h2>
                 <p>마감: ${poll.endDate ? new Date(poll.endDate.toDate()).toLocaleString() : '미정'}</p>
+                <p>생성자: ${poll.createdByName || '알 수 없음'}</p>
             `;
             card.addEventListener('click', () => {
                 window.location.href = `vote.html?pollId=${pollId}`;
