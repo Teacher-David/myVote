@@ -1,6 +1,6 @@
 // admin-management.js
 import { db, functions } from './firebase-config.js';
-import { collection, addDoc, getDocs, doc, deleteDoc, updateDoc, query, orderBy, onSnapshot, getDoc, where } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
+import { collection, addDoc, getDocs, doc, deleteDoc, updateDoc, query, orderBy, onSnapshot, getDoc, where, writeBatch } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { httpsCallable } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-functions.js';
 
 // Chart.js 전역 변수
@@ -56,9 +56,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let editingPollId = null; // 수정 중인 투표 ID
 
-    // Cloud Functions 호출 가능한 함수 정의
-    const deletePollAndVotesFunction = httpsCallable(functions, 'deletePollAndVotes');
-    const getPollResultsFunction = httpsCallable(functions, 'getPollResults');
+    // Cloud Functions 호출 가능한 함수 정의 (안전한 방식으로)
+    let deletePollAndVotesFunction = null;
+    let getPollResultsFunction = null;
+    
+    try {
+        deletePollAndVotesFunction = httpsCallable(functions, 'deletePollAndVotes');
+        getPollResultsFunction = httpsCallable(functions, 'getPollResults');
+        console.log('Firebase Functions loaded successfully');
+    } catch (error) {
+        console.warn('Firebase Functions not available:', error);
+    }
 
 
     // 모달 닫기
@@ -117,6 +125,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // 폼 제출 (투표 생성/수정)
     pollForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+        
+        console.log('Form submitted');
 
         const title = pollTitleInput.value.trim();
         const endDateStr = endDateInput.value;
@@ -127,16 +137,25 @@ document.addEventListener('DOMContentLoaded', () => {
             voteCount: 0 // 초기 voteCount
         })).filter(opt => opt.optionName !== '');
 
+        console.log('Form data:', { title, endDate, options });
+
+        if (!title) {
+            alert('투표 제목을 입력해주세요.');
+            return;
+        }
+
         if (options.length === 0) {
             alert('최소 하나 이상의 선택지를 입력해주세요.');
             return;
         }
 
+        // 버튼 비활성화
+        savePollBtn.disabled = true;
+        savePollBtn.textContent = '저장 중...';
+
         try {
             if (editingPollId) {
                 // 투표 수정
-                // (선택지까지 수정하는 로직은 복잡해질 수 있음. 여기서는 제목/종료일만 예시)
-                // 실제 구현에서는 기존 옵션 삭제 후 새로 추가하거나, 옵션별 수정 로직 필요
                 const pollRef = doc(db, 'polls', editingPollId);
                 await updateDoc(pollRef, {
                     title: title,
@@ -145,6 +164,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert('투표가 수정되었습니다.');
             } else {
                 // 새 투표 생성
+                console.log('Creating new poll with data:', { title, endDate, options });
+                
                 const newPollRef = await addDoc(collection(db, 'polls'), {
                     title: title,
                     status: 'active', // 기본적으로 'active' 상태로 생성
@@ -152,19 +173,29 @@ document.addEventListener('DOMContentLoaded', () => {
                     createdAt: new Date()
                 });
 
+                console.log('Poll created with ID:', newPollRef.id);
+
                 // 선택지 추가 (서브컬렉션에 저장)
-                const batch = db.batch();
+                const batch = writeBatch(db);
                 options.forEach(option => {
                     const optionRef = doc(collection(db, 'polls', newPollRef.id, 'options'));
                     batch.set(optionRef, option);
                 });
                 await batch.commit();
+                
+                console.log('Options added successfully');
                 alert('새 투표가 생성되었습니다.');
             }
             createEditModal.style.display = 'none';
         } catch (error) {
             console.error("Error saving poll: ", error);
-            alert('투표 저장 중 오류가 발생했습니다.');
+            console.error("Error details:", error.message);
+            console.error("Error code:", error.code);
+            alert(`투표 저장 중 오류가 발생했습니다: ${error.message}`);
+        } finally {
+            // 버튼 다시 활성화
+            savePollBtn.disabled = false;
+            savePollBtn.textContent = '저장';
         }
     });
 
