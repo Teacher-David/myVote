@@ -47,6 +47,18 @@ document.addEventListener('DOMContentLoaded', () => {
         userInfoEl.textContent = `로그인: ${currentUser.email}`;
         document.querySelector('.header-controls h1').after(userInfoEl);
 
+        // Cloud Functions 호출 가능한 함수 정의 (안전한 방식으로)
+        let deletePollAndVotesFunction = null;
+        let getPollResultsFunction = null;
+        
+        try {
+            deletePollAndVotesFunction = httpsCallable(functions, 'deletePollAndVotes');
+            getPollResultsFunction = httpsCallable(functions, 'getPollResults');
+            console.log('Firebase Functions loaded successfully');
+        } catch (error) {
+            console.warn('Firebase Functions not available:', error);
+        }
+
         // 로그아웃 버튼 이벤트
         logoutBtn.addEventListener('click', async () => {
             if (confirm('정말 로그아웃하시겠습니까?')) {
@@ -246,6 +258,9 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
+        // 나머지 이벤트 핸들러들... (투표 상태 변경, 삭제, 결과 보기 등)
+        // 기존 코드와 동일하지만 currentUser.uid로 권한 체크 추가
+        
         // 투표 테이블 클릭 이벤트 (이벤트 위임 사용)
         document.querySelector('#poll-table').addEventListener('click', async (e) => {
             const pollId = e.target.dataset.pollId;
@@ -420,5 +435,175 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         });
+    }
+});
+
+            const actionsCell = row.insertCell(4);
+            actionsCell.className = 'action-buttons';
+            actionsCell.innerHTML = `
+                <button class="edit-btn" data-poll-id="${pollId}">수정</button>
+                <button class="view-btn" data-poll-id="${pollId}">결과보기</button>
+                <button class="delete-btn" data-poll-id="${pollId}">삭제</button>
+            `;
+        });
+    });
+
+    // 이벤트 위임을 통한 버튼 클릭 처리
+    pollTableBody.addEventListener('click', async (e) => {
+        const target = e.target;
+        const pollId = target.dataset.pollId;
+
+        if (target.classList.contains('status-toggle')) {
+            const currentStatus = target.dataset.currentStatus;
+            const newStatus = currentStatus === 'active' ? 'ended' : 'active';
+            if (confirm(`투표 상태를 "${newStatus === 'active' ? '진행 중' : '종료됨'}"으로 변경하시겠습니까?`)) {
+                try {
+                    const pollRef = doc(db, 'polls', pollId);
+                    await updateDoc(pollRef, { status: newStatus });
+                    alert('상태가 변경되었습니다.');
+                } catch (error) {
+                    console.error("Error updating status: ", error);
+                    alert('상태 변경 중 오류가 발생했습니다.');
+                }
+            }
+        } else if (target.classList.contains('edit-btn')) {
+            editingPollId = pollId;
+            modalTitle.textContent = '투표 수정';
+            const pollRef = doc(db, 'polls', pollId);
+            const pollSnap = await getDoc(pollRef);
+            if (pollSnap.exists()) {
+                const pollData = pollSnap.data();
+                pollTitleInput.value = pollData.title;
+                if (pollData.endDate) {
+                    endDateInput.value = new Date(pollData.endDate.toDate()).toISOString().slice(0, 16);
+                } else {
+                    endDateInput.value = '';
+                }
+
+                // 기존 옵션 로드 및 폼에 추가
+                const optionsSnap = await getDocs(collection(db, 'polls', pollId, 'options'));
+                optionsFormContainer.innerHTML = '';
+                optionsSnap.forEach(optionDoc => {
+                    const option = optionDoc.data();
+                    const div = document.createElement('div');
+                    div.className = 'option-input-group';
+                    div.innerHTML = `
+                        <input type="text" class="option-input" value="${option.optionName}" required>
+                        <button type="button" class="remove-option-btn">삭제</button>
+                    `;
+                    optionsFormContainer.appendChild(div);
+                });
+                if (optionsSnap.empty) {
+                     optionsFormContainer.innerHTML = `
+                        <div class="option-input-group">
+                            <input type="text" class="option-input" placeholder="선택지 1" required>
+                            <button type="button" class="remove-option-btn" style="display:none;">삭제</button>
+                        </div>
+                    `;
+                }
+
+                createEditModal.style.display = 'block';
+            } else {
+                alert('투표 정보를 찾을 수 없습니다.');
+            }
+
+        } else if (target.classList.contains('view-btn')) {
+            await showPollResults(pollId);
+            resultsModal.style.display = 'block';
+        } else if (target.classList.contains('delete-btn')) {
+            if (confirm('정말로 이 투표를 삭제하시겠습니까? 관련 투표 기록도 모두 삭제됩니다.')) {
+                try {
+                    // Cloud Function 호출하여 관련 데이터 일괄 삭제
+                    const result = await deletePollAndVotesFunction({ pollId: pollId });
+                    if (result.data.success) {
+                        alert('투표가 성공적으로 삭제되었습니다.');
+                    } else {
+                        alert(`투표 삭제 실패: ${result.data.message || result.data.error}`);
+                    }
+                } catch (error) {
+                    console.error("Error deleting poll: ", error);
+                    alert('투표 삭제 중 오류가 발생했습니다.');
+                }
+            }
+        }
+    });
+
+    // 투표 결과 표시 함수 (Cloud Function 호출)
+    async function showPollResults(pollId) {
+        resultsPollTitle.textContent = '투표 결과 불러오는 중...';
+        voterListEl.innerHTML = '<p>참여자 목록을 불러오는 중...</p>';
+
+        try {
+            const result = await getPollResultsFunction({ pollId: pollId });
+            const { pollTitle, options, voters } = result.data;
+
+            if (!options) {
+                resultsPollTitle.textContent = '투표를 찾을 수 없거나 결과가 없습니다.';
+                return;
+            }
+            resultsPollTitle.textContent = `"${pollTitle}" 투표 결과`;
+
+            const labels = options.map(opt => opt.optionName);
+            const data = options.map(opt => opt.voteCount);
+
+            // Chart.js로 막대 그래프 그리기
+            const ctx = document.getElementById('results-chart').getContext('2d');
+            if (resultsChart) {
+                resultsChart.destroy(); // 기존 차트가 있다면 파괴
+            }
+            resultsChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '투표 수',
+                        data: data,
+                        backgroundColor: [
+                            'rgba(255, 99, 132, 0.6)', 'rgba(54, 162, 235, 0.6)',
+                            'rgba(255, 206, 86, 0.6)', 'rgba(75, 192, 192, 0.6)',
+                            'rgba(153, 102, 255, 0.6)', 'rgba(255, 159, 64, 0.6)'
+                        ],
+                        borderColor: [
+                            'rgba(255, 99, 132, 1)', 'rgba(54, 162, 235, 1)',
+                            'rgba(255, 206, 86, 1)', 'rgba(75, 192, 192, 1)',
+                            'rgba(153, 102, 255, 1)', 'rgba(255, 159, 64, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { precision: 0 }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+
+            // 투표 참여자 목록 표시
+            voterListEl.innerHTML = '';
+            if (!voters || voters.length === 0) {
+                voterListEl.innerHTML = '<p>아직 투표 참여자가 없습니다.</p>';
+            } else {
+                const ul = document.createElement('ul');
+                voters.forEach(voter => {
+                    const li = document.createElement('li');
+                    li.textContent = `학번 해시: ${voter.userId} - 선택: ${voter.optionName} (${new Date(voter.timestamp._seconds * 1000).toLocaleString()})`; // Cloud Function에서 timestamp가 _seconds/_nanoseconds 객체로 올 수 있음
+                    ul.appendChild(li);
+                });
+                voterListEl.appendChild(ul);
+            }
+
+        } catch (error) {
+            console.error("Error fetching poll results via Cloud Function: ", error);
+            resultsPollTitle.textContent = '투표 결과를 불러오는 데 오류가 발생했습니다.';
+            voterListEl.innerHTML = '<p style="color: red;">참여자 목록을 불러오는 데 오류가 발생했습니다.</p>';
+        }
     }
 });

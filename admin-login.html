@@ -7,7 +7,7 @@
     <script type="module" src="firebase-config.js"></script>
     <script type="module" src="admin-login.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
         .login-container { background-color: #fff; padding: 40px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); text-align: center; max-width: 400px; width: 90%; }
         h1 { color: #333; margin-bottom: 30px; font-size: 2em; font-weight: 300; }
         .back-button { 
@@ -24,14 +24,49 @@
             transition: background-color 0.3s ease;
         }
         .back-button:hover { background-color: #5a6268; }
+        .tab-buttons {
+            display: flex;
+            margin-bottom: 30px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .tab-button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            background-color: #f8f9fa;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s ease;
+        }
+        .tab-button.active {
+            background-color: #007bff;
+            color: white;
+        }
+        .tab-button:hover:not(.active) {
+            background-color: #e9ecef;
+        }
+        .form-container {
+            display: none;
+        }
+        .form-container.active {
+            display: block;
+        }
         .form-group { margin-bottom: 20px; text-align: left; }
         .form-group label { display: block; margin-bottom: 8px; font-weight: bold; color: #555; }
         .form-group input { width: calc(100% - 22px); padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 1em; transition: border-color 0.3s ease; }
         .form-group input:focus { outline: none; border-color: #007bff; box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25); }
-        button { background: linear-gradient(45deg, #007bff, #0056b3); color: white; padding: 12px 25px; border: none; border-radius: 8px; font-size: 1.1em; cursor: pointer; transition: all 0.3s ease; width: 100%; box-shadow: 0 4px 15px rgba(0,123,255,0.3); }
-        button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,123,255,0.4); }
+        .submit-button { background: linear-gradient(45deg, #007bff, #0056b3); color: white; padding: 12px 25px; border: none; border-radius: 8px; font-size: 1.1em; cursor: pointer; transition: all 0.3s ease; width: 100%; box-shadow: 0 4px 15px rgba(0,123,255,0.3); }
+        .submit-button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,123,255,0.4); }
+        .submit-button:disabled { background: #ccc; cursor: not-allowed; transform: none; box-shadow: none; }
         #message { margin-top: 20px; font-weight: bold; padding: 10px; border-radius: 5px; }
+        .success { color: #28a745; background-color: #d4edda; border: 1px solid #c3e6cb; }
+        .error { color: #dc3545; background-color: #f8d7da; border: 1px solid #f5c6cb; }
         .icon { font-size: 3em; margin-bottom: 20px; }
+        .divider { margin: 20px 0; text-align: center; color: #666; }
+        .divider::before { content: ''; display: inline-block; width: 30%; height: 1px; background: #ddd; margin-right: 10px; vertical-align: middle; }
+        .divider::after { content: ''; display: inline-block; width: 30%; height: 1px; background: #ddd; margin-left: 10px; vertical-align: middle; }
     </style>
 </head>
 <body>
@@ -39,14 +74,51 @@
         <a href="index.html" class="back-button">← 메인으로 돌아가기</a>
         <div class="icon">👨‍🏫</div>
         <h1>교사용 로그인</h1>
-        <form id="admin-login-form">
-            <div class="form-group">
-                <label for="auth-key">인증키:</label>
-                <input type="password" id="auth-key" placeholder="인증키를 입력하세요" required>
-            </div>
-            <button type="submit">로그인</button>
-            <p id="message"></p>
-        </form>
+        
+        <div class="tab-buttons">
+            <button class="tab-button active" data-tab="login">로그인</button>
+            <button class="tab-button" data-tab="register">회원가입</button>
+        </div>
+
+        <!-- 로그인 폼 -->
+        <div class="form-container active" id="login-form-container">
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="login-email">이메일:</label>
+                    <input type="email" id="login-email" placeholder="이메일을 입력하세요" required>
+                </div>
+                <div class="form-group">
+                    <label for="login-password">비밀번호:</label>
+                    <input type="password" id="login-password" placeholder="비밀번호를 입력하세요" required>
+                </div>
+                <button type="submit" class="submit-button" id="login-button">로그인</button>
+            </form>
+        </div>
+
+        <!-- 회원가입 폼 -->
+        <div class="form-container" id="register-form-container">
+            <form id="register-form">
+                <div class="form-group">
+                    <label for="register-email">이메일:</label>
+                    <input type="email" id="register-email" placeholder="이메일을 입력하세요" required>
+                </div>
+                <div class="form-group">
+                    <label for="register-password">비밀번호:</label>
+                    <input type="password" id="register-password" placeholder="비밀번호를 입력하세요 (최소 6자)" required minlength="6">
+                </div>
+                <div class="form-group">
+                    <label for="register-password-confirm">비밀번호 확인:</label>
+                    <input type="password" id="register-password-confirm" placeholder="비밀번호를 다시 입력하세요" required minlength="6">
+                </div>
+                <div class="form-group">
+                    <label for="register-name">교사명:</label>
+                    <input type="text" id="register-name" placeholder="교사명을 입력하세요" required>
+                </div>
+                <button type="submit" class="submit-button" id="register-button">회원가입</button>
+            </form>
+        </div>
+
+        <p id="message"></p>
     </div>
 </body>
 </html>
