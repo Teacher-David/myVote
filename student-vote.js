@@ -98,12 +98,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         messageEl.className = '';
 
         try {
+            // 디버깅을 위한 파라미터 로그
+            console.log('Calling submitVote with parameters:', {
+                pollId: pollId,
+                optionId: selectedOption.value,
+                studentId: studentId
+            });
+
             // Cloud Function 호출하여 투표 제출
             const result = await submitVoteFunction({
                 pollId: pollId,
                 optionId: selectedOption.value,
                 studentId: studentId // 학번을 Cloud Function으로 전달
             });
+
+            console.log('submitVote result:', result);
 
             if (result.data.success) {
                 messageEl.textContent = '투표가 성공적으로 완료되었습니다!';
@@ -121,12 +130,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         } catch (error) {
             console.error("Error submitting vote: ", error);
-            if (error.code === 'already-exists') {
+            console.error("Error code:", error.code);
+            console.error("Error message:", error.message);
+            
+            if (error.code === 'functions/already-exists') {
                 messageEl.textContent = '이미 이 투표에 참여하셨습니다.';
-            } else if (error.code === 'invalid-argument') {
+            } else if (error.code === 'functions/invalid-argument') {
                 messageEl.textContent = error.message; // Cloud Function에서 던진 메시지 사용
+            } else if (error.code === 'functions/failed-precondition') {
+                messageEl.textContent = '이 투표는 이미 종료되었습니다.';
+            } else if (error.code === 'functions/not-found') {
+                messageEl.textContent = '선택지를 찾을 수 없습니다.';
             } else {
-                messageEl.textContent = '투표 중 오류가 발생했습니다. 다시 시도해주세요.';
+                messageEl.textContent = `투표 중 오류가 발생했습니다: ${error.message}`;
             }
             messageEl.className = 'error';
             voteButton.disabled = false; // 에러 발생 시 버튼 활성화
