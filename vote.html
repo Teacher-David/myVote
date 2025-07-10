@@ -9,6 +9,21 @@
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; color: #333; margin: 0; padding: 20px; }
         .container { max-width: 600px; margin: 20px auto; background-color: #fff; padding: 30px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .header { text-align: center; margin-bottom: 30px; }
+        .back-button { 
+            background-color: #6c757d; 
+            color: white; 
+            border: none; 
+            padding: 10px 20px; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            font-size: 1em;
+            margin-bottom: 20px;
+            text-decoration: none;
+            display: inline-block;
+            transition: background-color 0.3s ease;
+        }
+        .back-button:hover { background-color: #5a6268; }
         h1 { text-align: center; color: #0056b3; margin-bottom: 25px; }
         #poll-title { font-size: 1.8em; text-align: center; margin-bottom: 30px; color: #007bff; }
         .options-group { margin-bottom: 25px; }
@@ -30,6 +45,9 @@
 </head>
 <body>
     <div class="container">
+        <div class="header">
+            <a href="student-vote-list.html" class="back-button">← 투표 목록으로 돌아가기</a>
+        </div>
         <h1>투표하기</h1>
         <h2 id="poll-title"></h2>
         <form id="vote-form">

@@ -1,6 +1,6 @@
 // student-list.js
 import { db } from './firebase-config.js';
-import { collection, query, where, onSnapshot, orderBy } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { collection, query, where, onSnapshot, orderBy } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     const pollListDiv = document.getElementById('poll-list');

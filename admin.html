@@ -10,7 +10,19 @@
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; color: #333; margin: 0; padding: 20px; }
         .container { max-width: 1000px; margin: 20px auto; background-color: #fff; padding: 30px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
         h1 { text-align: center; color: #0056b3; margin-bottom: 30px; }
-        .top-buttons { text-align: right; margin-bottom: 20px; }
+        .header-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .logout-btn { 
+            background-color: #dc3545; 
+            color: white; 
+            border: none; 
+            padding: 10px 20px; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            font-size: 1em;
+            transition: background-color 0.3s ease;
+        }
+        .logout-btn:hover { background-color: #c82333; }
+        .top-buttons { text-align: right; }
         .top-buttons button { background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; font-size: 1em; cursor: pointer; transition: background-color 0.3s; }
         .top-buttons button:hover { background-color: #0056b3; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
@@ -93,7 +105,10 @@
 </head>
 <body>
     <div class="container">
-        <h1>투표 관리</h1>
+        <div class="header-controls">
+            <h1>투표 관리</h1>
+            <button id="logout-btn" class="logout-btn">로그아웃</button>
+        </div>
         <div class="top-buttons">
             <button id="create-poll-btn">새 투표 생성</button>
         </div>

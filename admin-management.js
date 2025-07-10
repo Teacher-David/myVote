@@ -1,7 +1,7 @@
 // admin-management.js
 import { db, functions } from './firebase-config.js';
-import { collection, addDoc, getDocs, doc, deleteDoc, updateDoc, query, orderBy, onSnapshot, getDoc, where } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-import { httpsCallable } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js';
+import { collection, addDoc, getDocs, doc, deleteDoc, updateDoc, query, orderBy, onSnapshot, getDoc, where } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
+import { httpsCallable } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-functions.js';
 
 // Chart.js 전역 변수
 let resultsChart = null;
@@ -14,8 +14,23 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
+    // 로그인 시간 체크 (24시간 후 자동 로그아웃)
+    const loginTime = sessionStorage.getItem('loginTime');
+    if (loginTime) {
+        const currentTime = new Date().getTime();
+        const timeDiff = currentTime - parseInt(loginTime);
+        if (timeDiff > 24 * 60 * 60 * 1000) { // 24시간
+            sessionStorage.removeItem('isTeacherLoggedIn');
+            sessionStorage.removeItem('loginTime');
+            alert('로그인 시간이 만료되었습니다. 다시 로그인해주세요.');
+            window.location.href = 'admin-login.html';
+            return;
+        }
+    }
+
     const pollTableBody = document.querySelector('#poll-table tbody');
     const createPollBtn = document.getElementById('create-poll-btn');
+    const logoutBtn = document.getElementById('logout-btn');
     const createEditModal = document.getElementById('create-edit-modal');
     const resultsModal = document.getElementById('results-modal');
     const closeButtons = document.querySelectorAll('.close-button');
@@ -28,6 +43,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const savePollBtn = document.getElementById('save-poll-btn');
     const cancelPollBtn = document.getElementById('cancel-poll-btn');
     const resultsPollTitle = document.getElementById('results-poll-title');
+
+    // 로그아웃 버튼 이벤트
+    logoutBtn.addEventListener('click', () => {
+        if (confirm('정말 로그아웃하시겠습니까?')) {
+            sessionStorage.removeItem('isTeacherLoggedIn');
+            sessionStorage.removeItem('loginTime');
+            window.location.href = 'index.html';
+        }
+    });
     const voterListEl = document.getElementById('voter-list');
 
     let editingPollId = null; // 수정 중인 투표 ID
