@@ -1,17 +1,27 @@
 // student-list.js
 import { db } from './firebase-config.js';
-import { collection, query, where, onSnapshot } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
+import { collection, query, onSnapshot } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     const pollListDiv = document.getElementById('poll-list');
     const loadingMessage = document.getElementById('loading-message');
 
-    // 'active' 상태의 투표만 가져오기 (orderBy 제거하여 인덱스 문제 해결)
-    const q = query(collection(db, "polls"), where("status", "==", "active"));
+    // 모든 투표를 가져와서 클라이언트에서 필터링 (인덱스 문제 완전 해결)
+    const q = query(collection(db, "polls"));
 
     onSnapshot(q, (snapshot) => {
         pollListDiv.innerHTML = ''; // 기존 목록 초기화
-        if (snapshot.empty) {
+        
+        // 클라이언트에서 active 상태만 필터링
+        const activePolls = [];
+        snapshot.forEach((doc) => {
+            const poll = doc.data();
+            if (poll.status === 'active') {
+                activePolls.push({ id: doc.id, ...poll });
+            }
+        });
+        
+        if (activePolls.length === 0) {
             pollListDiv.innerHTML = '<p class="no-polls">현재 진행 중인 투표가 없습니다.</p>';
             loadingMessage.style.display = 'none'; // 로딩 메시지 숨김
             return;
@@ -19,22 +29,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         loadingMessage.style.display = 'none'; // 로딩 메시지 숨김
         
-        // 클라이언트에서 정렬
-        const polls = [];
-        snapshot.forEach((doc) => {
-            polls.push({ id: doc.id, ...doc.data() });
-        });
-        
-        // 생성일 기준 내림차순 정렬
-        polls.sort((a, b) => {
-            const aDate = a.createdAt ? a.createdAt.toDate() : new Date(0);
-            const bDate = b.createdAt ? b.createdAt.toDate() : new Date(0);
-            return bDate - aDate;
-        });
-
-        // 정렬된 투표 목록 표시
-        polls.forEach((poll) => {
+        // 투표 목록 표시
+        activePolls.forEach((poll) => {
             const pollId = poll.id;
+            
             const card = document.createElement('div');
             card.className = 'poll-card';
             card.innerHTML = `
