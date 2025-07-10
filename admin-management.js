@@ -207,10 +207,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // 투표 목록 실시간 업데이트 (현재 사용자의 투표만)
+        // 임시 해결책: orderBy를 제거하고 클라이언트에서 정렬
         const pollsQuery = query(
             collection(db, 'polls'), 
-            where('createdBy', '==', currentUser.uid),
-            orderBy('createdAt', 'desc')
+            where('createdBy', '==', currentUser.uid)
         );
         
         onSnapshot(pollsQuery, (snapshot) => {
@@ -220,9 +220,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
+            // 클라이언트에서 정렬
+            const polls = [];
             snapshot.forEach((doc) => {
-                const poll = doc.data();
-                const pollId = doc.id;
+                polls.push({ id: doc.id, ...doc.data() });
+            });
+            
+            // 생성일 기준 내림차순 정렬
+            polls.sort((a, b) => {
+                const aDate = a.createdAt ? a.createdAt.toDate() : new Date(0);
+                const bDate = b.createdAt ? b.createdAt.toDate() : new Date(0);
+                return bDate - aDate;
+            });
+
+            // 테이블에 추가
+            polls.forEach((poll) => {
+                const pollId = poll.id;
                 const row = pollTableBody.insertRow();
 
                 row.insertCell(0).textContent = poll.title;
@@ -233,7 +246,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </button>
                 `;
                 row.insertCell(2).textContent = poll.endDate ? new Date(poll.endDate.toDate()).toLocaleString() : '없음';
-                row.insertCell(3).textContent = new Date(poll.createdAt.toDate()).toLocaleString();
+                row.insertCell(3).textContent = poll.createdAt ? new Date(poll.createdAt.toDate()).toLocaleString() : '알 수 없음';
 
                 const actionsCell = row.insertCell(4);
                 actionsCell.innerHTML = `
